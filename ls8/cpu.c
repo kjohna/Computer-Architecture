@@ -21,7 +21,7 @@ void cpu_ram_write(struct cpu *cpu, int index, unsigned char value)
 /**
  * Load the binary bytes from a .ls8 source file into a RAM array
  */
-void cpu_load(struct cpu *cpu)
+void cpu_load(struct cpu *cpu, char *prog_file)
 {
   // char data[DATA_LEN] = {
   //     // From print8.ls8
@@ -45,7 +45,7 @@ void cpu_load(struct cpu *cpu)
   char line[1024];
   int ram_i = 0;
 
-  fp = fopen("./examples/print8.ls8", "r");
+  fp = fopen(prog_file, "r");
 
   if (fp == NULL)
   {
@@ -59,7 +59,7 @@ void cpu_load(struct cpu *cpu)
     unsigned char val = strtoul(line, &end_ptr, 2);
     if (end_ptr != line)
     {
-      printf("cpu->ram write val: %02x\n", val);
+      // printf("cpu->ram write val: %02x\n", val);
       cpu_ram_write(cpu, ram_i, val);
       ram_i++;
     }
