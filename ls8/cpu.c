@@ -2,6 +2,7 @@
 
 #define DATA_LEN 6
 #define HLT 0b00000001 // 01
+#define LDI 0b10000010 // 82, 2 operands
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -76,9 +77,9 @@ void cpu_run(struct cpu *cpu)
       operands[i] = cpu_ram_read(cpu, cpu->pc + i + 1);
     }
     // what's it up to?
-    printf("instr: %02x\n");
     printf("pc: %d\n", cpu->pc);
-    printf("oper_count: %d\n", cpu->pc);
+    printf("instr: %02x\n", instruction);
+    printf("oper_count: %d\n", oper_count);
     // 4. switch() over it to decide on a course of action.
     // 5. Do whatever the instruction should do according to the spec.
     switch (instruction)
@@ -86,6 +87,11 @@ void cpu_run(struct cpu *cpu)
     case HLT:
       printf("HLT command received. Exiting.\n");
       running = 0;
+      break;
+
+    case LDI:
+      printf("LDI command received, loading %02x register with %d.\n", operands[0], operands[1]);
+      cpu->gp_registers[operands[0]] = operands[1];
       break;
 
     default:
