@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "cpu.h"
 
 #define DATA_LEN 6
@@ -21,24 +23,49 @@ void cpu_ram_write(struct cpu *cpu, int index, unsigned char value)
  */
 void cpu_load(struct cpu *cpu)
 {
-  char data[DATA_LEN] = {
-      // From print8.ls8
-      0b10000010, // LDI R0,8
-      0b00000000,
-      0b00001000,
-      0b01000111, // PRN R0
-      0b00000000,
-      0b00000001 // HLT
+  // char data[DATA_LEN] = {
+  //     // From print8.ls8
+  //     0b10000010, // LDI R0,8
+  //     0b00000000,
+  //     0b00001000,
+  //     0b01000111, // PRN R0
+  //     0b00000000,
+  //     0b00000001 // HLT
+  // };
+
+  // int address = 0;
+
+  // for (int i = 0; i < DATA_LEN; i++)
+  // {
+  //   cpu->ram[address++] = data[i];
+  // }
+
+  // something less hard-coded:
+  FILE *fp;
+  char line[1024];
+  int ram_i = 0;
+
+  fp = fopen("./examples/print8.ls8", "r");
+
+  if (fp == NULL)
+  {
+    fprintf(stderr, "File not found.\n");
+    exit(1);
   };
 
-  int address = 0;
-
-  for (int i = 0; i < DATA_LEN; i++)
+  while (fgets(line, 1024, fp) != NULL)
   {
-    cpu->ram[address++] = data[i];
-  }
+    char *end_ptr;
+    unsigned char val = strtoul(line, &end_ptr, 2);
+    if (end_ptr != line)
+    {
+      printf("cpu->ram write val: %02x\n", val);
+      cpu_ram_write(cpu, ram_i, val);
+      ram_i++;
+    }
+  };
 
-  // TODO: Replace this with something less hard-coded
+  fclose(fp);
 }
 
 /**
