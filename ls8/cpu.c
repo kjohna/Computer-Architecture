@@ -6,6 +6,7 @@
 #define HLT 0b00000001 // 01
 #define LDI 0b10000010 // 82, 2 operands
 #define PRN 0b01000111 // 47, 1 operand
+#define MUL 0b10100010 // A2, 2 operands
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -76,7 +77,8 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
   switch (op)
   {
   case ALU_MUL:
-    // TODO
+    // printf("ALU: multiplies %d x %d\n", regA, regB);
+    cpu->gp_registers[regA] = cpu->gp_registers[regA] * cpu->gp_registers[regB];
     break;
 
     // TODO: implement more ALU ops
@@ -114,20 +116,26 @@ void cpu_run(struct cpu *cpu)
     {
     case HLT:
       // Halt the CPU (and exit the emulator).
-      printf(">> HLT command received. Exiting.\n");
+      // printf(">> HLT command received. Exiting.\n");
       running = 0;
       break;
 
     case LDI:
       // Set the value of a register to an integer.
-      printf(">> LDI command received, loading %02x register with %d.\n", operands[0], operands[1]);
+      // printf(">> LDI command received, loading %02x register with %d.\n", operands[0], operands[1]);
       cpu->gp_registers[operands[0]] = operands[1];
       break;
 
     case PRN:
       // Print to the console the decimal integer value that is stored in the given register.
-      printf(">> PRN received..\n");
+      // printf(">> PRN received..\n");
       printf("%d\n", cpu->gp_registers[operands[0]]);
+      break;
+
+    case MUL:
+      // *This is an instruction handled by the ALU.*
+      // Multiply the values in two registers together and store the result in registerA.
+      alu(cpu, 0, operands[0], operands[1]);
       break;
 
     default:
