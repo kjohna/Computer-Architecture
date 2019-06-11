@@ -3,6 +3,7 @@
 #define DATA_LEN 6
 #define HLT 0b00000001 // 01
 #define LDI 0b10000010 // 82, 2 operands
+#define PRN 0b01000111 // 47, 1 operand
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -77,25 +78,33 @@ void cpu_run(struct cpu *cpu)
       operands[i] = cpu_ram_read(cpu, cpu->pc + i + 1);
     }
     // what's it up to?
-    printf("pc: %d\n", cpu->pc);
-    printf("instr: %02x\n", instruction);
-    printf("oper_count: %d\n", oper_count);
+    // printf("pc: %d\n", cpu->pc);
+    // printf("instr: %02x\n", instruction);
+    // printf("oper_count: %d\n", oper_count);
     // 4. switch() over it to decide on a course of action.
     // 5. Do whatever the instruction should do according to the spec.
     switch (instruction)
     {
     case HLT:
-      printf("HLT command received. Exiting.\n");
+      // Halt the CPU (and exit the emulator).
+      printf(">> HLT command received. Exiting.\n");
       running = 0;
       break;
 
     case LDI:
-      printf("LDI command received, loading %02x register with %d.\n", operands[0], operands[1]);
+      // Set the value of a register to an integer.
+      printf(">> LDI command received, loading %02x register with %d.\n", operands[0], operands[1]);
       cpu->gp_registers[operands[0]] = operands[1];
       break;
 
+    case PRN:
+      // Print to the console the decimal integer value that is stored in the given register.
+      printf(">> PRN received..\n");
+      printf("%d\n", cpu->gp_registers[operands[0]]);
+      break;
+
     default:
-      printf("Unknown command: %02x\n", instruction);
+      printf(">> Unknown command: %02x\n", instruction);
       break;
     }
     // 6. Move the PC to the next instruction.

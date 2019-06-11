@@ -15,7 +15,7 @@
 - [*] Implement the core of `cpu_run()`
 - [*] Implement the `HLT` instruction handler
 - [*] Add the `LDI` instruction
-- [ ] Add the `PRN` instruction
+- [*] Add the `PRN` instruction
 
 ### Day 2: Add the ability to load files dynamically, get `mult.ls8` and `stack.ls8` running
 
