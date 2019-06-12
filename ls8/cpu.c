@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h> // to use sleep function for debugging
 #include "cpu.h"
 
 #define DATA_LEN 6
@@ -9,6 +10,8 @@
 #define MUL 0b10100010  // A2, 2 operands
 #define PUSH 0b01000101 // 45, 1 operand
 #define POP 0b01000110  // 46, 1 operand
+#define CALL 0b01010000 // 50, 1 operand
+#define RET 0b00010001  // 11
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -83,6 +86,7 @@ void cpu_run(struct cpu *cpu)
   int running = 1; // True until we get a HLT instruction
   int oper_count, operands[2];
   unsigned char instruction;
+  unsigned char moves_pc = 0;
 
   while (running)
   {
@@ -91,15 +95,17 @@ void cpu_run(struct cpu *cpu)
     instruction = cpu_ram_read(cpu, cpu->pc);
     // 2. Figure out how many operands this next instruction requires
     oper_count = instruction >> 6;
+    // 2a. Figure out if this instruction moves pc
+    moves_pc = instruction & 0b00010000;
     // 3. Get the appropriate value(s) of the operands following this instruction
-    for (int i = 0; i < oper_count; i++)
+    for (unsigned char i = 0; i < oper_count; i++)
     {
       operands[i] = cpu_ram_read(cpu, cpu->pc + i + 1);
     }
     // what's it up to?
-    // printf("pc: %d\n", cpu->pc);
-    // printf("instr: %02x\n", instruction);
-    // printf("oper_count: %d\n", oper_count);
+    printf("pc: %02x\n", cpu->pc);
+    printf("instr: %02x\n", instruction);
+    printf("oper_count: %d\n", oper_count);
     // 4. switch() over it to decide on a course of action.
     // 5. Do whatever the instruction should do according to the spec.
     switch (instruction)
@@ -112,7 +118,7 @@ void cpu_run(struct cpu *cpu)
 
     case LDI:
       // Set the value of a register to an integer.
-      // printf(">> LDI command received, loading %02x register with %d.\n", operands[0], operands[1]);
+      printf(">> LDI command received, loading register %02x with %02x.\n", operands[0], operands[1]);
       cpu->gp_registers[operands[0]] = operands[1];
       break;
 
@@ -130,7 +136,7 @@ void cpu_run(struct cpu *cpu)
 
     case PUSH:
       // Push the value in the given register on the stack.
-      cpu->gp_registers[7]--;
+      cpu->gp_registers[7]--; // decr stack pointer
       cpu->ram[cpu->gp_registers[7]] = cpu->gp_registers[operands[0]];
       // printf(">> PUSH: value %02x to address %02x\n", cpu->gp_registers[operands[0]], cpu->gp_registers[7]);
       break;
@@ -139,7 +145,29 @@ void cpu_run(struct cpu *cpu)
       // Pop the value at the top of the stack into the given register.
       // printf(">> POP: value %02x at address %02x to register %02x\n", cpu->ram[cpu->gp_registers[7]], cpu->gp_registers[7], operands[0]);
       cpu->gp_registers[operands[0]] = cpu->ram[cpu->gp_registers[7]];
-      cpu->gp_registers[7]++;
+      cpu->gp_registers[7]++; // incr stack pointer
+      break;
+
+    case CALL:
+      // Calls a subroutine (function) at the address stored in the register.
+      // 1) Push address of the instruction directly after `CALL` to the stack.
+      cpu->gp_registers[7]--; // decr stack pointer
+      cpu->ram[cpu->gp_registers[7]] = cpu->pc + 1;
+      printf(">> CALL: push pc of next instr (%02x)\n", cpu->pc + 1);
+      // 2) Set PC to the address stored in the register
+      // cast to int first (pc is an int)
+      int tmp = cpu->gp_registers[operands[0]];
+      cpu->pc = tmp;
+      printf(">> CALL: move pc to: %02x\n", cpu->pc);
+      printf(">> INT CALL: move pc to: %d\n", cpu->pc);
+      sleep(1);
+      break;
+
+    case RET:
+      // Return from subroutine:
+      // Pop the value from the top of the stack and store it in the `PC`.
+      cpu->pc = cpu->ram[cpu->gp_registers[7]];
+      cpu->gp_registers[7]++; // incr stack pointer
       break;
 
     default:
@@ -147,7 +175,13 @@ void cpu_run(struct cpu *cpu)
       break;
     }
     // 6. Move the PC to the next instruction.
-    cpu->pc = cpu->pc + 1 + oper_count;
+    // IFF the instruction didn't move it already
+    if (!moves_pc)
+    {
+      cpu->pc = cpu->pc + 1 + oper_count;
+      printf("Move PC.\n");
+    }
+    printf("PC: %02x\n", cpu->pc);
   }
 }
 
