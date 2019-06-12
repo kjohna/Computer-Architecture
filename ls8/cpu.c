@@ -118,7 +118,7 @@ void cpu_run(struct cpu *cpu)
 
     case PRN:
       // Print to the console the decimal integer value that is stored in the given register.
-      // printf(">> PRN received..\n");
+      // printf(">> PRN received, register %d\n", operands[0]);
       printf("%d\n", cpu->gp_registers[operands[0]]);
       break;
 
@@ -132,10 +132,12 @@ void cpu_run(struct cpu *cpu)
       // Push the value in the given register on the stack.
       cpu->gp_registers[7]--;
       cpu->ram[cpu->gp_registers[7]] = cpu->gp_registers[operands[0]];
+      // printf(">> PUSH: value %02x to address %02x\n", cpu->gp_registers[operands[0]], cpu->gp_registers[7]);
       break;
 
     case POP:
       // Pop the value at the top of the stack into the given register.
+      // printf(">> POP: value %02x at address %02x to register %02x\n", cpu->ram[cpu->gp_registers[7]], cpu->gp_registers[7], operands[0]);
       cpu->gp_registers[operands[0]] = cpu->ram[cpu->gp_registers[7]];
       cpu->gp_registers[7]++;
       break;
