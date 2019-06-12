@@ -12,6 +12,7 @@
 #define POP 0b01000110  // 46, 1 operand
 #define CALL 0b01010000 // 50, 1 operand
 #define RET 0b00010001  // 11
+#define ADD 0b10100000  // A0, 2 operands
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -74,7 +75,10 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
     cpu->gp_registers[regA] = cpu->gp_registers[regA] * cpu->gp_registers[regB];
     break;
 
-    // TODO: implement more ALU ops
+  case ALU_ADD:
+    // printf("ALU: adds %d + %d\n", regA, regB);
+    cpu->gp_registers[regA] = cpu->gp_registers[regA] + cpu->gp_registers[regB];
+    break;
   }
 }
 
@@ -103,9 +107,9 @@ void cpu_run(struct cpu *cpu)
       operands[i] = cpu_ram_read(cpu, cpu->pc + i + 1);
     }
     // what's it up to?
-    printf("pc: %02x\n", cpu->pc);
-    printf("instr: %02x\n", instruction);
-    printf("oper_count: %d\n", oper_count);
+    // printf("pc: %02x\n", cpu->pc);
+    // printf("instr: %02x\n", instruction);
+    // printf("oper_count: %d\n", oper_count);
     // 4. switch() over it to decide on a course of action.
     // 5. Do whatever the instruction should do according to the spec.
     switch (instruction)
@@ -118,7 +122,7 @@ void cpu_run(struct cpu *cpu)
 
     case LDI:
       // Set the value of a register to an integer.
-      printf(">> LDI command received, loading register %02x with %02x.\n", operands[0], operands[1]);
+      // printf(">> LDI command received, loading register %02x with %02x.\n", operands[0], operands[1]);
       cpu->gp_registers[operands[0]] = operands[1];
       break;
 
@@ -150,17 +154,16 @@ void cpu_run(struct cpu *cpu)
 
     case CALL:
       // Calls a subroutine (function) at the address stored in the register.
-      // 1) Push address of the instruction directly after `CALL` to the stack.
+      // 1) Push address of the instruction directly after `CALL` to the stack. (add 2 since call has 1 operand)
       cpu->gp_registers[7]--; // decr stack pointer
-      cpu->ram[cpu->gp_registers[7]] = cpu->pc + 1;
-      printf(">> CALL: push pc of next instr (%02x)\n", cpu->pc + 1);
+      cpu->ram[cpu->gp_registers[7]] = cpu->pc + 2;
+      // printf(">> CALL: push pc of next instr (%02x)\n", cpu->pc + 1);
       // 2) Set PC to the address stored in the register
       // cast to int first (pc is an int)
       int tmp = cpu->gp_registers[operands[0]];
       cpu->pc = tmp;
-      printf(">> CALL: move pc to: %02x\n", cpu->pc);
-      printf(">> INT CALL: move pc to: %d\n", cpu->pc);
-      sleep(1);
+      // printf(">> CALL: move pc to: %02x\n", cpu->pc);
+      // sleep(1);
       break;
 
     case RET:
@@ -168,6 +171,14 @@ void cpu_run(struct cpu *cpu)
       // Pop the value from the top of the stack and store it in the `PC`.
       cpu->pc = cpu->ram[cpu->gp_registers[7]];
       cpu->gp_registers[7]++; // incr stack pointer
+      // printf(">> RET: move pc to: %02x\n", cpu->pc);
+      // sleep(1);
+      break;
+
+    case ADD:
+      // *This is an instruction handled by the ALU.*
+      // Add the value in two registers and store the result in registerA.
+      alu(cpu, 1, operands[0], operands[1]);
       break;
 
     default:
@@ -179,9 +190,9 @@ void cpu_run(struct cpu *cpu)
     if (!moves_pc)
     {
       cpu->pc = cpu->pc + 1 + oper_count;
-      printf("Move PC.\n");
+      // printf("Move PC.\n");
     }
-    printf("PC: %02x\n", cpu->pc);
+    // printf("PC: %02x\n", cpu->pc);
   }
 }
 
