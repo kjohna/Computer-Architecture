@@ -8,6 +8,7 @@
 #define PRN 0b01000111  // 47, 1 operand
 #define MUL 0b10100010  // A2, 2 operands
 #define PUSH 0b01000101 // 45, 1 operand
+#define POP 0b01000110  // 46, 1 operand
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -55,7 +56,7 @@ void cpu_load(struct cpu *cpu, char *prog_file)
   fclose(fp);
   // return ram_i - 0b1 == end of program
   // (mod2 arithmetic)
-  printf("end of prog: %d\n", ram_i - 0b1);
+  // printf("end of prog: %d\n", ram_i - 0b1);
 }
 
 /**
@@ -128,7 +129,15 @@ void cpu_run(struct cpu *cpu)
       break;
 
     case PUSH:
+      // Push the value in the given register on the stack.
+      cpu->gp_registers[7]--;
+      cpu->ram[cpu->gp_registers[7]] = cpu->gp_registers[operands[0]];
+      break;
 
+    case POP:
+      // Pop the value at the top of the stack into the given register.
+      cpu->gp_registers[operands[0]] = cpu->ram[cpu->gp_registers[7]];
+      cpu->gp_registers[7]++;
       break;
 
     default:
