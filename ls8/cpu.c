@@ -22,29 +22,13 @@ void cpu_ram_write(struct cpu *cpu, int index, unsigned char value)
 /**
  * Load the binary bytes from a .ls8 source file into a RAM array
  */
-void cpu_load(struct cpu *cpu, char *prog_file)
+unsigned char cpu_load(struct cpu *cpu, char *prog_file)
 {
-  // char data[DATA_LEN] = {
-  //     // From print8.ls8
-  //     0b10000010, // LDI R0,8
-  //     0b00000000,
-  //     0b00001000,
-  //     0b01000111, // PRN R0
-  //     0b00000000,
-  //     0b00000001 // HLT
-  // };
-
-  // int address = 0;
-
-  // for (int i = 0; i < DATA_LEN; i++)
-  // {
-  //   cpu->ram[address++] = data[i];
-  // }
-
   // something less hard-coded:
+  // loads program (from prog_file) into memory
   FILE *fp;
   char line[1024];
-  int ram_i = 0;
+  unsigned char ram_i = 0;
 
   fp = fopen(prog_file, "r");
 
@@ -67,6 +51,8 @@ void cpu_load(struct cpu *cpu, char *prog_file)
   };
 
   fclose(fp);
+  // return ram_i - 1 == end of program
+  return ram_i - 1;
 }
 
 /**
