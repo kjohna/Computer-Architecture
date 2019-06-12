@@ -3,10 +3,11 @@
 #include "cpu.h"
 
 #define DATA_LEN 6
-#define HLT 0b00000001 // 01
-#define LDI 0b10000010 // 82, 2 operands
-#define PRN 0b01000111 // 47, 1 operand
-#define MUL 0b10100010 // A2, 2 operands
+#define HLT 0b00000001  // 01
+#define LDI 0b10000010  // 82, 2 operands
+#define PRN 0b01000111  // 47, 1 operand
+#define MUL 0b10100010  // A2, 2 operands
+#define PUSH 0b01000101 // 45, 1 operand
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -22,7 +23,7 @@ void cpu_ram_write(struct cpu *cpu, int index, unsigned char value)
 /**
  * Load the binary bytes from a .ls8 source file into a RAM array
  */
-unsigned char cpu_load(struct cpu *cpu, char *prog_file)
+void cpu_load(struct cpu *cpu, char *prog_file)
 {
   // something less hard-coded:
   // loads program (from prog_file) into memory
@@ -45,14 +46,16 @@ unsigned char cpu_load(struct cpu *cpu, char *prog_file)
     if (end_ptr != line)
     {
       // printf("cpu->ram write val: %02x\n", val);
+      // printf("cpu->ram write add: %d\n", ram_i);
       cpu_ram_write(cpu, ram_i, val);
       ram_i++;
     }
   };
 
   fclose(fp);
-  // return ram_i - 1 == end of program
-  return ram_i - 1;
+  // return ram_i - 0b1 == end of program
+  // (mod2 arithmetic)
+  printf("end of prog: %d\n", ram_i - 0b1);
 }
 
 /**
@@ -124,6 +127,10 @@ void cpu_run(struct cpu *cpu)
       alu(cpu, 0, operands[0], operands[1]);
       break;
 
+    case PUSH:
+
+      break;
+
     default:
       printf(">> Unknown command: %02x\n", instruction);
       break;
@@ -138,10 +145,12 @@ void cpu_run(struct cpu *cpu)
  */
 void cpu_init(struct cpu *cpu)
 {
-  // TODO: Initialize the PC and other special registers
+  // Initialize the PC and other special registers
   cpu->pc = 0;
   cpu->ir = 0;
   cpu->mar = 0;
   cpu->mdr = 0;
   cpu->fl = 0;
+  // R7 = SP, points at F4 when stack is empty
+  cpu->gp_registers[7] = 0xF4;
 }
