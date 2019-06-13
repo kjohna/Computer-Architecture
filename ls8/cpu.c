@@ -4,15 +4,6 @@
 #include "cpu.h"
 
 #define DATA_LEN 6
-#define HLT 0b00000001  // 01
-#define LDI 0b10000010  // 82, 2 operands
-#define PRN 0b01000111  // 47, 1 operand
-#define MUL 0b10100010  // A2, 2 operands
-#define PUSH 0b01000101 // 45, 1 operand
-#define POP 0b01000110  // 46, 1 operand
-#define CALL 0b01010000 // 50, 1 operand
-#define RET 0b00010001  // 11
-#define ADD 0b10100000  // A0, 2 operands
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -78,6 +69,41 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
   case ALU_ADD:
     // printf("ALU: adds %d + %d\n", regA, regB);
     cpu->gp_registers[regA] = cpu->gp_registers[regA] + cpu->gp_registers[regB];
+    break;
+
+  case ALU_CMP:
+    // sets flag register with result
+    // flag register: 0000 0LGE
+    // reset flag register first
+    cpu->fl = 0;
+    if (cpu->gp_registers[regA] == cpu->gp_registers[regB])
+    {
+      // set E flag to 1
+      cpu->fl = 0x01;
+    }
+    else if (cpu->gp_registers[regA] < cpu->gp_registers[regB])
+    {
+      // set L flag to 1
+      cpu->fl = 0x04;
+    }
+    else
+    {
+      // A > B
+      // set G flag to 1
+      cpu->fl = 0x02;
+    }
+    break;
+
+  case ALU_INC:
+    cpu->gp_registers[regA]++;
+    break;
+
+  case ALU_DEC:
+    cpu->gp_registers[regA]--;
+    break;
+
+  default:
+    printf("Bad ALU op.");
     break;
   }
 }
@@ -179,6 +205,46 @@ void cpu_run(struct cpu *cpu)
       // *This is an instruction handled by the ALU.*
       // Add the value in two registers and store the result in registerA.
       alu(cpu, 1, operands[0], operands[1]);
+      break;
+
+    case CMP:
+      //  *This is an instruction handled by the ALU.*
+      // Compare the values in two registers.
+      alu(cpu, 2, operands[0], operands[1]);
+      break;
+
+    case JEQ:
+      // If `equal` flag is set (true), jump to the address stored in the given register.
+      if (cpu->fl == 0x01)
+      {
+        cpu->pc = cpu->gp_registers[operands[0]];
+      }
+      break;
+
+    case LD:
+      // Loads registerA (operands[0]) with the value at the memory address stored in registerB (operands[1]).
+      cpu->gp_registers[operands[0]] = cpu->ram[cpu->gp_registers[operands[1]]];
+      break;
+
+    case PRA:
+      // Print alpha character value stored in the given register.
+      printf("%c", cpu->gp_registers[operands[0]]);
+      break;
+
+    case INC:
+      // *This is an instruction handled by the ALU.*
+      // Increment (add 1 to) the value in the given register.
+      alu(cpu, 3, operands[0], operands[1]);
+      break;
+
+    case DEC:
+      // *This is an instruction handled by the ALU.*
+      // Decrement (subtract 1 from) the value in the given register.
+      alu(cpu, 4, operands[0], operands[1]);
+
+    case JMP:
+      // Jump: Set the `PC` to the address stored in the given register.
+      cpu->pc = cpu->gp_registers[operands[0]];
       break;
 
     default:
