@@ -92,14 +92,19 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
       // set G flag to 1
       cpu->fl = 0x02;
     }
+    // printf("ALU > CMP: cpu->fl = %02x\n", cpu->fl);
     break;
 
   case ALU_INC:
+    // printf("ALU > INC: %02x\n", cpu->gp_registers[regA]);
     cpu->gp_registers[regA]++;
+    // printf("ALU > INC: %02x\n", cpu->gp_registers[regA]);
     break;
 
   case ALU_DEC:
+    // printf("ALU > DEC: %02x\n", cpu->gp_registers[regA]);
     cpu->gp_registers[regA]--;
+    // printf("ALU > DEC: %02x\n", cpu->gp_registers[regA]);
     break;
 
   default:
@@ -215,10 +220,17 @@ void cpu_run(struct cpu *cpu)
 
     case JEQ:
       // If `equal` flag is set (true), jump to the address stored in the given register.
+      // printf(">> JEQ: cpu->fl = %02x.\n", cpu->fl);
       if (cpu->fl == 0x01)
       {
         cpu->pc = cpu->gp_registers[operands[0]];
       }
+      else
+      {
+        // if not jumping, unset moves_pc so that pc increments properly
+        moves_pc = 0;
+      }
+      // sleep(1);
       break;
 
     case LD:
@@ -241,9 +253,11 @@ void cpu_run(struct cpu *cpu)
       // *This is an instruction handled by the ALU.*
       // Decrement (subtract 1 from) the value in the given register.
       alu(cpu, 4, operands[0], operands[1]);
+      break;
 
     case JMP:
       // Jump: Set the `PC` to the address stored in the given register.
+      // printf(">> JMP to %02x\n", cpu->gp_registers[operands[0]]);
       cpu->pc = cpu->gp_registers[operands[0]];
       break;
 
