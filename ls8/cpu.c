@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h> // to use sleep function for debugging
+#include <time.h>   // for timer interrupts
 #include "cpu.h"
 
 #define DATA_LEN 6
+#define SP 7
+#define IS 6
+#define IM 5
 
 // helpers to read and write cpu's ram
 unsigned int cpu_ram_read(struct cpu *cpu, int index)
@@ -15,6 +19,20 @@ void cpu_ram_write(struct cpu *cpu, int index, unsigned char value)
 {
   cpu->ram[index] = value;
 };
+
+// helpers to push/pop from stack
+void push(struct cpu *cpu, unsigned char value)
+{
+  cpu->gp_registers[SP]--; // decr stack pointer
+  cpu->ram[cpu->gp_registers[SP]] = value;
+}
+
+unsigned char pop(struct cpu *cpu)
+{
+  unsigned char rv = cpu->ram[cpu->gp_registers[SP]];
+  cpu->gp_registers[SP]++; // incr stack pointer
+  return rv;
+}
 
 /**
  * Load the binary bytes from a .ls8 source file into a RAM array
@@ -113,6 +131,42 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
   }
 }
 
+void interrupt(struct cpu *cpu, int *interrupts_enabled)
+{
+  // 1. The IM register is bitwise AND-ed with the IS register and the
+  //  results stored as `maskedInterrupts`.
+  unsigned char maskedInterrupts = cpu->gp_registers[IM] & cpu->gp_registers[IS];
+  // printf("checking interrupt..maskedInterrupts = %02x\n", maskedInterrupts);
+  // 2. Each bit of `maskedInterrupts` is checked, starting from 0 and going up to the 7th bit, one for each interrupt.
+  for (unsigned char i = 0; i < 8; i++)
+  {
+    // 3. If a bit is found to be set, follow the next sequence of steps. Stop further checking of `maskedInterrupts`.
+    if (maskedInterrupts & i)
+    {
+      // 1. Disable further interrupts.
+      *interrupts_enabled = 0;
+      // 2. Clear the bit in the IS register.
+      cpu->gp_registers[IS] = cpu->gp_registers[IS] & !i;
+      // 3. The `PC` register is pushed on the stack.
+      push(cpu, cpu->pc);
+      // 4. The `FL` register is pushed on the stack.
+      push(cpu, cpu->fl);
+      // 5. Registers R0-R6 are pushed on the stack in that order.
+      for (int j = 0; j < 7; j++)
+      {
+        push(cpu, cpu->gp_registers[j]);
+      }
+      // 6. The address (_vector_ in interrupt terminology) of the appropriate handler is looked up from the interrupt vector table.
+      unsigned char iv = cpu->ram[0xF7 + i];
+      // 7. Set the PC is set to the handler address.
+      cpu->pc = iv;
+      // printf("Interrupt at %02x\n", i);
+      // sleep(1);
+      break;
+    }
+  }
+}
+
 /**
  * Run the CPU
  */
@@ -122,10 +176,27 @@ void cpu_run(struct cpu *cpu)
   int oper_count, operands[2];
   unsigned char instruction;
   unsigned char moves_pc = 0;
+  int interrupts_enabled = 1;
+  time_t before = time(NULL); // get current time
+  // set to number of seconds between timer interrupts
+  time_t timer_s = 1;
 
   while (running)
   {
-    // TODO
+    // timer interrupts:
+    if (time(NULL) >= before + timer_s)
+    {
+      // printf("set timer interrupt status true.\n");
+      // reset before
+      before = time(NULL);
+      // set timer interrupt status
+      cpu->gp_registers[IS] = 0x01;
+    }
+    // check for/handle interrupts
+    if (interrupts_enabled)
+    {
+      interrupt(cpu, &interrupts_enabled);
+    }
     // 1. Get the value of the current instruction (in address PC).
     instruction = cpu_ram_read(cpu, cpu->pc);
     // 2. Figure out how many operands this next instruction requires
@@ -171,23 +242,20 @@ void cpu_run(struct cpu *cpu)
 
     case PUSH:
       // Push the value in the given register on the stack.
-      cpu->gp_registers[7]--; // decr stack pointer
-      cpu->ram[cpu->gp_registers[7]] = cpu->gp_registers[operands[0]];
-      // printf(">> PUSH: value %02x to address %02x\n", cpu->gp_registers[operands[0]], cpu->gp_registers[7]);
+      push(cpu, operands[0]);
+      // printf(">> PUSH: value %02x to address %02x\n", cpu->gp_registers[operands[0]], cpu->gp_registers[SP]);
       break;
 
     case POP:
       // Pop the value at the top of the stack into the given register.
-      // printf(">> POP: value %02x at address %02x to register %02x\n", cpu->ram[cpu->gp_registers[7]], cpu->gp_registers[7], operands[0]);
-      cpu->gp_registers[operands[0]] = cpu->ram[cpu->gp_registers[7]];
-      cpu->gp_registers[7]++; // incr stack pointer
+      // printf(">> POP: value %02x at address %02x to register %02x\n", cpu->ram[cpu->gp_registers[SP]], cpu->gp_registers[SP], operands[0]);
+      cpu->gp_registers[operands[0]] = pop(cpu);
       break;
 
     case CALL:
       // Calls a subroutine (function) at the address stored in the register.
       // 1) Push address of the instruction directly after `CALL` to the stack. (add 2 since call has 1 operand)
-      cpu->gp_registers[7]--; // decr stack pointer
-      cpu->ram[cpu->gp_registers[7]] = cpu->pc + 2;
+      push(cpu, cpu->pc + 2);
       // printf(">> CALL: push pc of next instr (%02x)\n", cpu->pc + 1);
       // 2) Set PC to the address stored in the register
       // cast to int first (pc is an int)
@@ -200,8 +268,7 @@ void cpu_run(struct cpu *cpu)
     case RET:
       // Return from subroutine:
       // Pop the value from the top of the stack and store it in the `PC`.
-      cpu->pc = cpu->ram[cpu->gp_registers[7]];
-      cpu->gp_registers[7]++; // incr stack pointer
+      cpu->pc = pop(cpu);
       // printf(">> RET: move pc to: %02x\n", cpu->pc);
       // sleep(1);
       break;
@@ -241,6 +308,7 @@ void cpu_run(struct cpu *cpu)
     case PRA:
       // Print alpha character value stored in the given register.
       printf("%c", cpu->gp_registers[operands[0]]);
+      fflush(stdout); // in case a \n is not printed
       break;
 
     case INC:
@@ -259,6 +327,40 @@ void cpu_run(struct cpu *cpu)
       // Jump: Set the `PC` to the address stored in the given register.
       // printf(">> JMP to %02x\n", cpu->gp_registers[operands[0]]);
       cpu->pc = cpu->gp_registers[operands[0]];
+      break;
+
+    case JNE:
+      // If `E` flag is clear (false, 0), jump to the address stored in the given register.
+      if (!(cpu->fl & 0x01))
+      {
+        cpu->pc = cpu->gp_registers[operands[0]];
+      }
+      else
+      {
+        // if not jumping, unset moves_pc so that pc increments properly
+        moves_pc = 0;
+      }
+      break;
+
+    case ST:
+      // Store value in registerB in the address stored in registerA.
+      cpu->ram[cpu->gp_registers[operands[0]]] = cpu->gp_registers[operands[1]];
+      // printf(">> ST: value (%02x) in reg %02x stored to address %02x\n", cpu->gp_registers[operands[1]], operands[1], cpu->gp_registers[operands[0]]);
+      break;
+
+    case IRET:
+      // Return from an interrupt handler.
+      // 1. Registers R6-R0 are popped off the stack in that order.
+      for (int i = 6; i > -1; i--)
+      {
+        cpu->gp_registers[i] = pop(cpu);
+      }
+      // 2. The `FL` register is popped off the stack.
+      cpu->fl = pop(cpu);
+      // 3. The return address is popped off the stack and stored in `PC`.
+      cpu->pc = pop(cpu);
+      // 4. Interrupts are re-enabled
+      interrupts_enabled = 1;
       break;
 
     default:
@@ -288,5 +390,5 @@ void cpu_init(struct cpu *cpu)
   cpu->mdr = 0;
   cpu->fl = 0;
   // R7 = SP, points at F4 when stack is empty
-  cpu->gp_registers[7] = 0xF4;
+  cpu->gp_registers[SP] = 0xF4;
 }
