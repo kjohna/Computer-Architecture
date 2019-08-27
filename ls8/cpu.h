@@ -21,7 +21,8 @@ enum alu_op
   ALU_ADD,
   ALU_CMP,
   ALU_INC,
-  ALU_DEC
+  ALU_DEC,
+  ALU_OR
   // Add more here
 };
 
@@ -48,6 +49,7 @@ enum alu_op
 #define JNE 0b01010110  // 56, 1 operand
 #define ST 0b10000100   // 84, 2 operands
 #define IRET 0b00010011 // 13
+#define OR 0b10101010   // AA, 2 operands
 // TODO: more instructions here. These can be used in cpu_run().
 
 // Function declarations

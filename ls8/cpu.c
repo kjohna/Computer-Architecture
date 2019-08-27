@@ -125,6 +125,11 @@ void alu(struct cpu *cpu, enum alu_op op, unsigned char regA, unsigned char regB
     // printf("ALU > DEC: %02x\n", cpu->gp_registers[regA]);
     break;
 
+  case ALU_OR:
+    // printf("ALU > OR: %d | %d\n", regA, regB);
+    cpu->gp_registers[regA] = cpu->gp_registers[regA] | cpu->gp_registers[regB];
+    break;
+
   default:
     printf("Bad ALU op.");
     break;
@@ -361,6 +366,12 @@ void cpu_run(struct cpu *cpu)
       cpu->pc = pop(cpu);
       // 4. Interrupts are re-enabled
       interrupts_enabled = 1;
+      break;
+
+    case OR:
+      // *This is an instruction handled by the ALU.*
+      // Perform a bitwise-OR between the values in registerA and registerB, storing the result in registerA.
+      alu(cpu, 5, operands[0], operands[1]);
       break;
 
     default:
